@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Group Chat Analytics</title>
+<style>
+:root{--bg:#f4f5fa;--card:#fff;--text:#1b1d29;--muted:#6b7084;--accent:#5b6cff;--hot:#ff6b4a;--bar:#e6e9ff;--border:#e2e4ee;--c2:#12b886;--c3:#f59f00;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13141b;--card:#1c1e2a;--text:#eceefa;--muted:#9a9fb8;--accent:#8a96ff;--hot:#ff8466;--bar:#2a2d44;--border:#2c2f42;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#13141b;--card:#1c1e2a;--text:#eceefa;--muted:#9a9fb8;--accent:#8a96ff;--hot:#ff8466;--bar:#2a2d44;--border:#2c2f42;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+main{max-width:720px;margin:0 auto;padding:18px 14px 40px}
+h1{font-size:1.5rem;margin:6px 0 2px}h2{font-size:1.05rem;margin:22px 0 8px}
+.sub{color:var(--muted);font-size:.85rem;margin:0 0 12px}
+nav{display:flex;gap:6px;margin:12px 0;flex-wrap:wrap}
+nav button{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:7px 14px;font-size:.9rem;cursor:pointer}
+nav button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tab{display:none}.tab.on{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:10px 0}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.stat .n{font-size:1.3rem;font-weight:700}.stat .l{color:var(--muted);font-size:.78rem}
+.row{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:7px;overflow:hidden}
+.hd{position:relative;padding:10px 12px;cursor:pointer}
+.fill{position:absolute;inset:0 auto 0 0;background:var(--bar)}
+.in{position:relative;display:flex;justify-content:space-between;gap:10px}
+.rk{color:var(--muted);display:inline-block;min-width:2.2ch}
+.ct{font-weight:700;white-space:nowrap}.pc{color:var(--muted);font-weight:400;font-size:.82rem}
+.dt{display:none;padding:4px 12px 12px;border-top:1px solid var(--border);font-size:.85rem}.row.open .dt{display:block}
+svg{display:block;width:100%;height:auto}svg text{font-size:10px;fill:var(--muted)}
+.br{fill:var(--accent);opacity:.8}.pk{fill:var(--hot)}
+table{width:100%;border-collapse:collapse;font-size:.9rem}td,th{padding:6px 4px;border-bottom:1px solid var(--border);text-align:right}td:first-child,th:first-child{text-align:left}
+.lg span{margin-right:12px;font-size:.8rem;color:var(--muted)}.lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px}
+.ins li{margin:4px 0}
+textarea,input[type=number]{width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit}
+.drop{display:block;border:2px dashed var(--border);border-radius:12px;padding:18px;text-align:center;cursor:pointer;margin:8px 0}
+button.go{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:9px 16px;font-size:1rem;cursor:pointer;margin-top:8px}
+.err{color:#d33}.hide{display:none}code{background:var(--bar);padding:1px 5px;border-radius:5px}
+</style>
+</head>
+<body>
+<main>
+<h1>Group Chat Analytics</h1>
+<p class="sub" id="meta">Loading…</p>
+<nav id="nav"><button data-t="lb" class="on">Leaderboard</button><button data-t="tr">Seasonal trends</button><button data-t="pt">Patterns</button><button data-t="ad">Admin</button></nav>
+
+<section class="tab on" id="lb"><div class="grid" id="stats"></div><div id="board"></div></section>
+
+<section class="tab" id="tr">
+<ul class="ins card" id="ins"></ul>
+<h2>Messages per day, month by month</h2><div class="card" id="c-time"></div>
+<h2>Seasonality: average messages per day by calendar month</h2><div class="card" id="c-cal"></div>
+<h2>Year over year</h2><div class="card"><div class="lg" id="lg"></div><div id="c-yoy"></div></div>
+<h2>Seasons (India)</h2><div class="card"><table id="seas"></table></div>
+</section>
+
+<section class="tab" id="pt">
+<h2>By hour of day</h2><div class="card" id="c-hr"></div>
+<h2>By day of week</h2><div class="card" id="c-dw"></div>
+<h2>Weekday × hour heatmap</h2><div class="card" id="c-heat"></div>
+</section>
+
+<section class="tab" id="ad">
+<h2>Update the data</h2>
+<p class="sub">Pick your Takeout <code>messages.json</code>. It’s read in your browser only. Then download <code>results.json</code> (names and counts only, no message text) and upload it next to <code>index.html</code>.</p>
+<label class="drop" id="drop"><input type="file" id="file" accept=".json,application/json" class="hide"><b>Tap to pick messages.json</b> or drag it here</label>
+<label class="drop" id="drop2"><input type="file" id="file2" accept=".json,application/json" class="hide"><b>Add recent counts</b> (recent-counts.json from the scroll script)</label>
+<label class="sub">UTC offset in hours (India = 5.5), applied when reading messages</label>
+<input type="number" id="tz" value="5.5" step="0.5">
+<h2>Merge duplicate names</h2>
+<p class="sub">One per line: <code>Aaradhyaa V = Aaradhyaa</code>. Names that only differ in capital letters are merged automatically.</p>
+<textarea id="al" rows="4" placeholder="Aaradhyaa V = Aaradhyaa"></textarea>
+<button class="go" id="dl">Download results.json</button>
+<div class="err" id="err"></div>
+</section>
+</main>
+
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)},D=null,L=[];
+var MIL=['January','February','March','April','May','June','July','August','September','October','November','December'],MS=MIL.map(function(m){return m.slice(0,3)});
+var DW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],COL=['var(--accent)','var(--c2)','var(--c3)','var(--hot)'];
+var SEAS=[['Winter (Dec–Feb)',[12,1,2]],['Summer (Mar–May)',[3,4,5]],['Monsoon (Jun–Sep)',[6,7,8,9]],['Post-monsoon (Oct–Nov)',[10,11]]];
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function f(n,d){return Number(n).toLocaleString('en-US',{minimumFractionDigits:d||0,maximumFractionDigits:d||0})}
+function z(n){return Array.apply(0,Array(n)).map(function(){return 0})}
+function hl(h){return (h%12||12)+(h<12?' AM':' PM')}
+function dstr(k){var a=k.split('-');return +a[2]+' '+MS[a[1]-1]+' '+a[0]}
+function mlab(k){var a=k.split('-');return MS[a[1]-1]+" ’"+a[0].slice(2)}
+
+function build(msgs,tz){
+ var P={},R=[],mc={},re=/(\w+) (\d+), (\d+) at (\d+):(\d+):\d+\s*([AP])M/;
+ msgs.forEach(function(m){
+  var c=m.creator||{},n=c.name||c.email||'Unknown',p=P[n]||(P[n]={n:0,w:0,mo:{},h:z(24),d:z(7)});p.n++;
+  var x=re.exec(m.created_date||''),mi=x?MIL.indexOf(x[1]):-1;if(mi<0)return;
+  var t=new Date(Date.UTC(+x[3],mi,+x[2],+x[4]%12+(x[6]=='P'?12:0),+x[5])+tz*36e5),mo=t.toISOString().slice(0,7);
+  mc[mo]=(mc[mo]||0)+1;R.push([n,t,mo,(m.text||'').trim().split(/\s+/).filter(Boolean).length]);
+ });
+ var thr=R.length*0.0005,heat=[],days={},ks=[];for(var i=0;i<7;i++)heat.push(z(24));
+ R.forEach(function(r){if(mc[r[2]]<thr)return;var p=P[r[0]],t=r[1],hr=t.getUTCHours(),dw=(t.getUTCDay()+6)%7,ds=t.toISOString().slice(0,10);
+  p.w+=r[3];p.mo[r[2]]=(p.mo[r[2]]||0)+1;p.h[hr]++;p.d[dw]++;heat[dw][hr]++;days[ds]=(days[ds]||0)+1});
+ ks=Object.keys(days).sort();
+ return{updated:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}),tz:tz,first:ks[0],last:ks[ks.length-1],total:msgs.length,dated:ks.reduce(function(s,k){return s+days[k]},0),people:P,heat:heat,days:days,alias:{}};
+}
+function merged(){
+ var A={},G={};Object.keys(D.alias||{}).forEach(function(k){A[k.toLowerCase()]=D.alias[k].toLowerCase()});
+ Object.keys(D.people).forEach(function(nm){var p=D.people[nm],k=A[nm.toLowerCase()]||nm.toLowerCase(),g=G[k]||(G[k]={name:nm,best:0,n:0,n0:0,w:0,mo:{},h:z(24),d:z(7)});
+  if(p.n>g.best){g.best=p.n;g.name=nm}g.n+=p.n;g.n0+=(p.n0!=null?p.n0:p.n);g.w+=p.w;for(var m in p.mo)g.mo[m]=(g.mo[m]||0)+p.mo[m];
+  p.h.forEach(function(v,i){g.h[i]+=v});p.d.forEach(function(v,i){g.d[i]+=v})});
+ return Object.keys(G).map(function(k){return G[k]}).sort(function(a,b){return b.n-a.n});
+}
+function dpm(){var o={},a=D.first.split('-'),t=Date.UTC(+a[0],+a[1]-1,+a[2]),e=Date.parse(D.last);for(;t<=e;t+=864e5){var k=new Date(t).toISOString().slice(0,7);o[k]=(o[k]||0)+1}return o}
+
+function bars(v,lb,dec,sfx){var W=600,H=140,n=v.length,mx=Math.max.apply(0,v)||1,bw=W/n,s='<svg viewBox="0 0 '+W+' '+(H+20)+'">';
+ v.forEach(function(x,i){var h=x/mx*H;s+='<rect x="'+(i*bw+bw*.12)+'" y="'+(H-h)+'" width="'+bw*.76+'" height="'+h+'" rx="2" class="'+(x==mx?'pk':'br')+'"><title>'+lb[i]+': '+f(x,dec)+(sfx||'')+'</title></rect>';
+  if(lb[i]&&(n<=14||i%Math.ceil(n/14)==0))s+='<text x="'+(i*bw+bw/2)+'" y="'+(H+14)+'" text-anchor="middle">'+lb[i]+'</text>'});
+ return s+'</svg>'}
+function lines(S,lb){var W=600,H=150,n=lb.length,mx=0,s='<svg viewBox="0 0 '+W+' '+(H+20)+'">';
+ S.forEach(function(a){a.forEach(function(v){if(v!=null&&v>mx)mx=v})});mx=mx||1;
+ S.forEach(function(a,j){var pts=[];a.forEach(function(v,i){if(v!=null)pts.push([10+i/(n-1)*(W-20),H-v/mx*H,v,i])});
+  s+='<polyline fill="none" stroke="'+COL[j]+'" stroke-width="2.5" points="'+pts.map(function(p){return p[0]+','+p[1]}).join(' ')+'"/>';
+  pts.forEach(function(p){s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3" fill="'+COL[j]+'"><title>'+lb[p[3]]+': '+f(p[2],2)+'/day</title></circle>'})});
+ lb.forEach(function(l,i){s+='<text x="'+(10+i/(n-1)*(W-20))+'" y="'+(H+14)+'" text-anchor="middle">'+l+'</text>'});
+ return s+'</svg>'}
+function heatmap(m){var mx=Math.max.apply(0,m.map(function(r){return Math.max.apply(0,r)}))||1,s='<svg viewBox="0 0 620 190">';
+ m.forEach(function(r,d){s+='<text x="0" y="'+(d*24+16)+'">'+DW[d]+'</text>';r.forEach(function(v,h){s+='<rect x="'+(34+h*24.4)+'" y="'+(d*24)+'" width="22" height="22" rx="3" fill="var(--accent)" opacity="'+(.08+.92*v/mx)+'"><title>'+DW[d]+' '+hl(h)+': '+f(v)+'</title></rect>'})});
+ for(var h=0;h<24;h+=3)s+='<text x="'+(34+h*24.4+11)+'" y="182" text-anchor="middle">'+hl(h)+'</text>';return s+'</svg>'}
+function argmax(a){return a.indexOf(Math.max.apply(0,a))}
+
+function render(){
+ L=merged();var tot=L.reduce(function(s,p){return s+p.n},0),dp=dpm(),mk=Object.keys(dp).sort(),nd=mk.reduce(function(s,k){return s+dp[k]},0),
+  days=Object.keys(D.days),bd=days.slice().sort(function(a,b){return D.days[b]-D.days[a]})[0],dated=D.dated;
+ $('meta').textContent='Data from '+dstr(D.first)+' to '+dstr(D.last)+' · updated '+D.updated+' · times in UTC'+(D.tz>=0?'+':'')+D.tz+(D.total>D.dated?' · '+f(D.total-D.dated)+' messages have no usable timestamp and are left out of time charts':'');
+ var st=[[f(tot),'messages'],[L.length,'people'],[f(tot/L.length,2),'avg per person'],[f(dated/nd,2),'messages per day'],[f(days.length),'active days'],[f(D.days[bd])+' · '+dstr(bd),'busiest day']];
+ $('stats').innerHTML=st.map(function(s){var t=String(s[0]);return'<div class="card stat"><div class="n" style="font-size:'+(t.length>12?'1rem':'1.3rem')+'">'+t+'</div><div class="l">'+s[1]+'</div></div>'}).join('');
+ var mx=L[0].n;
+ $('board').innerHTML=L.map(function(p,i){var w=Math.max(3,p.n/mx*100);return'<div class="row" data-i="'+i+'"><div class="hd"><div class="fill" style="width:'+w+'%"></div><div class="in"><span><span class="rk">'+(['🥇','🥈','🥉'][i]||i+1)+'</span> '+esc(p.name)+'</span><span class="ct">'+f(p.n)+' <span class="pc">'+f(p.n/tot*100,2)+'%</span></span></div></div><div class="dt"></div></div>'}).join('');
+ var mt=mk.map(function(k){return L.reduce(function(s,p){return s+(p.mo[k]||0)},0)}),pd=mt.map(function(v,i){return v/dp[mk[i]]});
+ $('c-time').innerHTML=bars(pd,mk.map(mlab),2,' msgs/day');
+ var cm=[],cd=[];for(var m=1;m<=12;m++){var a=0,b=0;mk.forEach(function(k,i){if(+k.slice(5)==m){a+=mt[i];b+=dp[k]}});cm.push(b?a/b:0);cd.push(b)}
+ $('c-cal').innerHTML=bars(cm,MS,2,' msgs/day');
+ var ys=[],S=[];mk.forEach(function(k){var y=k.slice(0,4);if(ys.indexOf(y)<0)ys.push(y)});
+ ys.forEach(function(y){S.push(MS.map(function(_,i){var k=y+'-'+('0'+(i+1)).slice(-2),j=mk.indexOf(k);return j<0?null:pd[j]}))});
+ $('c-yoy').innerHTML=lines(S,MS);$('lg').innerHTML=ys.map(function(y,j){return'<span><i style="background:'+COL[j]+'"></i>'+y+'</span>'}).join('');
+ var avg=dated/nd;
+ $('seas').innerHTML='<tr><th>Season</th><th>Msgs/day</th><th>vs average</th></tr>'+SEAS.map(function(s){var a=0,b=0;mk.forEach(function(k,i){if(s[1].indexOf(+k.slice(5))>=0){a+=mt[i];b+=dp[k]}});var v=b?a/b:0;return'<tr><td>'+s[0]+'</td><td>'+f(v,2)+'</td><td>'+(v>=avg?'+':'−')+f(Math.abs(v/avg-1)*100,2)+'%</td></tr>'}).join('');
+ var hi=argmax(cm),lo=cm.indexOf(Math.min.apply(0,cm.filter(function(v,i){return cd[i]})));
+ var th=z(24),td=z(7);L.forEach(function(p){p.h.forEach(function(v,i){th[i]+=v});p.d.forEach(function(v,i){td[i]+=v})});
+ $('ins').innerHTML='<li>Busiest month: <b>'+MIL[hi]+'</b> at '+f(cm[hi],2)+' msgs/day ('+(cm[hi]>=avg?'+':'−')+f(Math.abs(cm[hi]/avg-1)*100,2)+'% vs average).</li><li>Quietest month: <b>'+MIL[lo]+'</b> at '+f(cm[lo],2)+' msgs/day.</li><li>Peak hour: <b>'+hl(argmax(th))+'</b>. Peak day: <b>'+DW[argmax(td)]+'</b>.</li><li>Months that appear in only one year rest on a single year of data, so read their seasonal pattern with care.</li>';
+ $('c-hr').innerHTML=bars(th,th.map(function(_,i){return hl(i)}),0,' msgs');$('c-dw').innerHTML=bars(td,DW,0,' msgs');$('c-heat').innerHTML=heatmap(D.heat);
+}
+function detail(p){var night=p.h.slice(0,5).reduce(function(a,b){return a+b},0),ds=p.h.reduce(function(a,b){return a+b},0)||1,tm=Object.keys(p.mo).sort(function(a,b){return p.mo[b]-p.mo[a]})[0];
+ return'<p>'+f(p.w/(p.n0||p.n),2)+' words per message · peak hour <b>'+hl(argmax(p.h))+'</b> · most active on <b>'+DW[argmax(p.d)]+'</b> · night owl (12–5 AM): '+f(night/ds*100,2)+'%'+(tm?' · top month <b>'+mlab(tm)+'</b> ('+f(p.mo[tm])+')':'')+'</p>'+bars(p.h,p.h.map(function(_,i){return i%3?'':hl(i)}),0,' msgs')}
+
+$('nav').addEventListener('click',function(e){var t=e.target.getAttribute('data-t');if(!t)return;
+ [].forEach.call(document.querySelectorAll('.tab'),function(s){s.classList.toggle('on',s.id==t)});[].forEach.call(this.children,function(b){b.classList.toggle('on',b===e.target)})});
+$('board').addEventListener('click',function(e){var r=e.target.closest('.row');if(!r)return;var d=r.querySelector('.dt');
+ if(!d.innerHTML){d.innerHTML=detail(L[+r.getAttribute('data-i')])}r.classList.toggle('open')});
+function alias(){var o={};$('al').value.split('\n').forEach(function(l){var a=l.split('=');if(a.length==2&&a[0].trim()&&a[1].trim())o[a[0].trim()]=a[1].trim()});return o}
+$('al').addEventListener('input',function(){if(D){D.alias=alias();render()}});
+function handle(file){$('err').textContent='';if(!file)return;var r=new FileReader();
+ r.onload=function(){try{var d=JSON.parse(r.result),m=Array.isArray(d)?d:d.messages;if(!m||!m.length)throw 0;D=build(m,parseFloat($('tz').value)||0);D.alias=alias();render()}
+  catch(e){$('err').textContent='That doesn’t look like a Google Chat messages.json (use the one in Groups > your group name).'}};r.readAsText(file)}
+$('file').addEventListener('change',function(){handle(this.files[0])});
+var dr=$('drop');['dragenter','dragover'].forEach(function(v){dr.addEventListener(v,function(e){e.preventDefault()})});dr.addEventListener('drop',function(e){e.preventDefault();handle(e.dataTransfer.files[0])});
+$('dl').addEventListener('click',function(){if(!D){$('err').textContent='Load a messages.json first.';return}
+ var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D)],{type:'application/json'}));a.download='results.json';document.body.appendChild(a);a.click();a.remove()});
+$('file2').addEventListener('change',function(){var fl=this.files[0];if(!fl)return;if(!D){$('err').textContent='Load your main data first.';return}
+ var r=new FileReader();r.onload=function(){try{var x=JSON.parse(r.result);
+  Object.keys(x.people).forEach(function(nm){var s=x.people[nm],p=D.people[nm]||(D.people[nm]={n:0,w:0,mo:{},h:z(24),d:z(7)});if(p.n0==null)p.n0=p.n;
+   p.n+=s.n;for(var m in s.mo)p.mo[m]=(p.mo[m]||0)+s.mo[m];s.h.forEach(function(v,i){p.h[i]+=v});s.d.forEach(function(v,i){p.d[i]+=v})});
+  x.heat.forEach(function(r,i){r.forEach(function(v,j){D.heat[i][j]+=v})});for(var k in x.days)D.days[k]=(D.days[k]||0)+x.days[k];
+  D.total+=x.total;D.dated+=x.dated;var ks=Object.keys(D.days).sort();D.first=ks[0];D.last=ks[ks.length-1];$('err').textContent='';render()}
+  catch(e){$('err').textContent='Could not read that file.'}};r.readAsText(fl)});
+fetch('results.json?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){D=d;$('al').value=Object.keys(d.alias||{}).map(function(k){return k+' = '+d.alias[k]}).join('\n');render()})
+ .catch(function(){$('meta').textContent='No results published yet. Use the Admin tab.';$('nav').children[3].click()});
+})();
+</script>
+</body>
+</html>
